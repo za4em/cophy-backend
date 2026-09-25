@@ -1,0 +1,16 @@
+Look at this photo of a bag of coffee beans. Extract only what is printed on the bag.
+
+Reply with only a JSON object, no markdown, using exactly these keys:
+{"name":"","origin":"","roaster":"","process":"","elevation":"","tasting_notes":[]}
+
+Example:
+{"name":"Kieni AA","origin":"Nyeri, Kenya","roaster":"","process":"Washed","elevation":"1,750 m","tasting_notes":["blackcurrant","grapefruit"]}
+
+Rules:
+- name: the coffee, lot, or farm name. If a roaster brand and a more specific coffee name are both printed, use the coffee name.
+- origin: country and region, as printed.
+- roaster: the roasting company.
+- process: the processing method, such as washed, natural, honey, or anaerobic.
+- elevation: the altitude as printed, including the unit, as a string. Use "1750" when no unit is printed.
+- tasting_notes: the flavor notes as a JSON array of strings.
+- Use an empty string for anything that is not visible. Use an empty array for tasting notes. Do not invent details.
