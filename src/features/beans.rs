@@ -1,15 +1,13 @@
+pub(crate) mod api;
+pub(crate) mod model;
 mod repository;
 
 use futures::future::join_all;
 
+use model::{Bean, BeanDraft, decode_notes};
 use sqlx::SqlitePool;
 
-use crate::core::{
-    config::BeansConfig,
-    errors::AppError,
-    models::{Bean, BeanDraft, decode_notes},
-    storage::Storage,
-};
+use crate::core::{config::BeansConfig, errors::AppError, storage::Storage};
 
 #[derive(Clone)]
 pub(crate) struct Beans {

@@ -1,23 +1,15 @@
+pub(crate) mod api;
+pub(crate) mod model;
 mod repository;
 
 use std::time::Duration;
 
-use serde::Serialize;
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::core::{config::UploadsConfig, errors::AppError, storage::Storage};
 
-#[derive(Serialize)]
-pub(crate) struct UploadTicket {
-    pub(crate) id: String,
-    pub(crate) upload_url: String,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct ClaimedUpload {
-    pub(crate) key: String,
-}
+pub(crate) use model::{ClaimedUpload, UploadTicket};
 
 #[derive(Clone)]
 pub(crate) struct Uploads {

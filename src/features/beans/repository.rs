@@ -1,9 +1,7 @@
 use sqlx::SqlitePool;
 
-use crate::core::{
-    errors::{AppError, database},
-    models::{BeanDraft, encode_notes},
-};
+use super::model::{BeanDraft, encode_notes};
+use crate::core::errors::{AppError, database};
 
 #[derive(Debug, sqlx::FromRow)]
 pub(super) struct BeanRow {

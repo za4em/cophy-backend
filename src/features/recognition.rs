@@ -1,6 +1,8 @@
+pub(crate) mod api;
 mod reader;
 
-use crate::core::{errors::AppError, models::Bean};
+use crate::core::errors::AppError;
+use crate::features::beans::model::Bean;
 use crate::features::{
     beans::Beans,
     uploads::{ClaimedUpload, Uploads},

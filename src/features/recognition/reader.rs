@@ -4,8 +4,8 @@ use serde_json::Value;
 use crate::core::{
     config::OpenRouterConfig,
     errors::{AppError, ReaderFault},
-    models::BeanDraft,
 };
+use crate::features::beans::model::BeanDraft;
 
 const PROMPT: &str = include_str!("prompt.txt");
 
