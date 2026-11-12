@@ -14,6 +14,6 @@ dotenvy = "0.15.7"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["env-filter"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "migrate"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 uuid = { version = "1", features = ["v4"] }

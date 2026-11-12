@@ -5,19 +5,19 @@ mod repository;
 use futures::future::join_all;
 
 use model::{Bean, BeanDraft, decode_notes};
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use crate::core::{config::BeansConfig, errors::AppError, storage::Storage};
 
 #[derive(Clone)]
 pub(crate) struct Beans {
-    pool: SqlitePool,
+    pool: PgPool,
     storage: Storage,
     page_size: i64,
 }
 
 impl Beans {
-    pub(crate) fn new(pool: SqlitePool, storage: Storage, config: BeansConfig) -> Self {
+    pub(crate) fn new(pool: PgPool, storage: Storage, config: BeansConfig) -> Self {
         Self {
             pool,
             storage,
@@ -70,7 +70,7 @@ impl Beans {
         if let Some(key) = image_key
             && let Err(err) = self.storage.delete(&key).await
         {
-            tracing::error!(%key, error = %err, "bean was deleted but its image remains in s3");
+            tracing::error!(%key, error = %err, "bean was deleted but its image remains in r2");
         }
         Ok(())
     }

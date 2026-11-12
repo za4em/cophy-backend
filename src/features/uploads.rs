@@ -4,7 +4,7 @@ mod repository;
 
 use std::time::Duration;
 
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::core::{config::UploadsConfig, errors::AppError, storage::Storage};
@@ -13,14 +13,14 @@ pub(crate) use model::{ClaimedUpload, UploadTicket};
 
 #[derive(Clone)]
 pub(crate) struct Uploads {
-    pool: SqlitePool,
+    pool: PgPool,
     storage: Storage,
     key_prefix: String,
     abandon_after: Duration,
 }
 
 impl Uploads {
-    pub(crate) fn new(pool: SqlitePool, storage: Storage, config: UploadsConfig) -> Self {
+    pub(crate) fn new(pool: PgPool, storage: Storage, config: UploadsConfig) -> Self {
         Self {
             pool,
             storage,
@@ -87,7 +87,7 @@ impl Uploads {
         let keys = repository::delete_abandoned(&self.pool, self.abandon_after).await?;
         for key in keys {
             if let Err(err) = self.storage.delete(&key).await {
-                tracing::error!(%key, error = ?err, "abandoned upload remains in s3");
+                tracing::error!(%key, error = ?err, "abandoned upload remains in r2");
             }
         }
         Ok(())

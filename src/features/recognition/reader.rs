@@ -9,7 +9,7 @@ use crate::features::beans::model::BeanDraft;
 
 const PROMPT: &str = include_str!("prompt.txt");
 
-/// Reads a coffee bag from an image URL. The image itself stays in S3.
+/// Reads a coffee bag from an image URL. The image itself stays in R2.
 #[derive(Clone)]
 pub(crate) struct BagReader {
     http: reqwest::Client,

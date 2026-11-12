@@ -16,12 +16,13 @@ pub struct ServerConfig {
 pub(crate) struct DatabaseConfig {
     pub(crate) url: String,
     pub(crate) pool_size: u32,
-    pub(crate) busy_timeout: Duration,
 }
 
 pub(crate) struct StorageConfig {
+    pub(crate) account_id: String,
+    pub(crate) access_key_id: String,
+    pub(crate) secret_access_key: String,
     pub(crate) bucket: String,
-    pub(crate) region: String,
     pub(crate) upload_ttl: Duration,
     pub(crate) read_ttl: Duration,
 }
@@ -54,11 +55,12 @@ impl Config {
             database: DatabaseConfig {
                 url: required("DATABASE_URL")?,
                 pool_size: 5,
-                busy_timeout: Duration::from_secs(5),
             },
             storage: StorageConfig {
-                bucket: required("S3_BUCKET")?,
-                region: required("AWS_REGION")?,
+                account_id: required("R2_ACCOUNT_ID")?,
+                access_key_id: required("R2_ACCESS_KEY_ID")?,
+                secret_access_key: required("R2_SECRET_ACCESS_KEY")?,
+                bucket: required("R2_BUCKET")?,
                 upload_ttl: Duration::from_secs(15 * 60),
                 read_ttl: Duration::from_secs(60 * 60),
             },

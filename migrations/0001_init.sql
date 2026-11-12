@@ -1,5 +1,5 @@
 CREATE TABLE beans (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id TEXT NOT NULL,
     name TEXT NOT NULL,
     origin TEXT NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE beans (
     elevation TEXT NOT NULL,
     tasting_notes TEXT NOT NULL,
     image_key TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX beans_user_id_idx ON beans (user_id, id);
@@ -17,8 +17,8 @@ CREATE INDEX beans_user_id_idx ON beans (user_id, id);
 CREATE TABLE uploads (
     key TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    in_processing INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    in_processing BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX beans_user_image_key_uidx ON beans (user_id, image_key);

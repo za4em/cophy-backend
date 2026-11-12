@@ -2,8 +2,5 @@
 .env
 .env.*
 !.env.template
-*.db
-*.db-*
-*.sqlite
-*.sqlite-*
 .DS_Store
+docs/

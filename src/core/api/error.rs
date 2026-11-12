@@ -46,7 +46,7 @@ fn client_message(err: &AppError) -> String {
                 .to_owned()
         }
         AppError::ImageMissing => {
-            "The image is not in S3 yet. PUT the photo to the upload URL, then use the same id."
+            "The image is not in R2 yet. PUT the photo to the upload URL, then use the same id."
                 .to_owned()
         }
         AppError::UnsupportedImageType => {
@@ -74,16 +74,16 @@ fn client_message(err: &AppError) -> String {
 fn storage_message(fault: &StorageFault) -> String {
     match fault {
         StorageFault::Unreachable { bucket } => format!(
-            "Could not access S3 bucket {bucket}. Check the credentials, region, and that this key can list the bucket."
+            "Could not access R2 bucket {bucket}. Check the account id, access key, and that this key can list the bucket."
         ),
-        StorageFault::UploadUrl => "S3 failed while creating the upload URL.".to_owned(),
-        StorageFault::ReadUrl => "S3 failed while creating a read URL for the image.".to_owned(),
+        StorageFault::UploadUrl => "R2 failed while creating the upload URL.".to_owned(),
+        StorageFault::ReadUrl => "R2 failed while creating a read URL for the image.".to_owned(),
         StorageFault::Head => {
-            "S3 failed while checking whether the uploaded image exists.".to_owned()
+            "R2 failed while checking whether the uploaded image exists.".to_owned()
         }
-        StorageFault::DeleteObject => "S3 failed while deleting the image.".to_owned(),
+        StorageFault::DeleteObject => "R2 failed while deleting the image.".to_owned(),
         StorageFault::BadTtl => {
-            "Could not prepare the S3 signature because the link lifetime is invalid.".to_owned()
+            "Could not prepare the R2 signature because the link lifetime is invalid.".to_owned()
         }
     }
 }
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(status(&storage), StatusCode::BAD_GATEWAY);
         assert_eq!(
             client_message(&storage),
-            "S3 failed while creating a read URL for the image."
+            "R2 failed while creating a read URL for the image."
         );
     }
 }

@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use super::ClaimedUpload;
 use crate::core::errors::{AppError, database};
 
-pub(super) async fn insert(pool: &SqlitePool, user_id: &str, key: &str) -> Result<(), AppError> {
-    sqlx::query("INSERT INTO uploads (key, user_id) VALUES (?, ?)")
+pub(super) async fn insert(pool: &PgPool, user_id: &str, key: &str) -> Result<(), AppError> {
+    sqlx::query("INSERT INTO uploads (key, user_id) VALUES ($1, $2)")
         .bind(key)
         .bind(user_id)
         .execute(pool)
@@ -16,15 +16,15 @@ pub(super) async fn insert(pool: &SqlitePool, user_id: &str, key: &str) -> Resul
 }
 
 pub(super) async fn claim(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     key: &str,
 ) -> Result<ClaimedUpload, AppError> {
     let row: Option<String> = sqlx::query_scalar(
         r#"
         UPDATE uploads
-        SET in_processing = 1
-        WHERE key = ? AND user_id = ? AND in_processing = 0
+        SET in_processing = true
+        WHERE key = $1 AND user_id = $2 AND in_processing = false
         RETURNING key
         "#,
     )
@@ -38,8 +38,8 @@ pub(super) async fn claim(
         return Ok(ClaimedUpload { key });
     }
 
-    let in_processing: Option<i64> =
-        sqlx::query_scalar("SELECT in_processing FROM uploads WHERE key = ? AND user_id = ?")
+    let in_processing: Option<bool> =
+        sqlx::query_scalar("SELECT in_processing FROM uploads WHERE key = $1 AND user_id = $2")
             .bind(key)
             .bind(user_id)
             .fetch_optional(pool)
@@ -52,16 +52,16 @@ pub(super) async fn claim(
     }
 }
 
-pub(super) async fn release_processing(pool: &SqlitePool) -> Result<(), AppError> {
-    sqlx::query("UPDATE uploads SET in_processing = 0 WHERE in_processing != 0")
+pub(super) async fn release_processing(pool: &PgPool) -> Result<(), AppError> {
+    sqlx::query("UPDATE uploads SET in_processing = false WHERE in_processing")
         .execute(pool)
         .await
         .map_err(|err| database("releasing in-progress upload tickets", err))?;
     Ok(())
 }
 
-pub(super) async fn release(pool: &SqlitePool, key: &str) -> Result<(), AppError> {
-    sqlx::query("UPDATE uploads SET in_processing = 0 WHERE key = ?")
+pub(super) async fn release(pool: &PgPool, key: &str) -> Result<(), AppError> {
+    sqlx::query("UPDATE uploads SET in_processing = false WHERE key = $1")
         .bind(key)
         .execute(pool)
         .await
@@ -69,8 +69,8 @@ pub(super) async fn release(pool: &SqlitePool, key: &str) -> Result<(), AppError
     Ok(())
 }
 
-pub(super) async fn delete(pool: &SqlitePool, key: &str) -> Result<(), AppError> {
-    sqlx::query("DELETE FROM uploads WHERE key = ?")
+pub(super) async fn delete(pool: &PgPool, key: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM uploads WHERE key = $1")
         .bind(key)
         .execute(pool)
         .await
@@ -79,22 +79,21 @@ pub(super) async fn delete(pool: &SqlitePool, key: &str) -> Result<(), AppError>
 }
 
 pub(super) async fn delete_abandoned(
-    pool: &SqlitePool,
+    pool: &PgPool,
     abandon_after: Duration,
 ) -> Result<Vec<String>, AppError> {
-    let modifier = format!("-{} seconds", abandon_after.as_secs());
     sqlx::query_scalar(
         r#"
         DELETE FROM uploads
-        WHERE in_processing = 0
-          AND created_at < datetime('now', ?)
+        WHERE in_processing = false
+          AND created_at < now() - ($1::bigint * INTERVAL '1 second')
           AND NOT EXISTS (
               SELECT 1 FROM beans WHERE beans.image_key = uploads.key
           )
         RETURNING key
         "#,
     )
-    .bind(modifier)
+    .bind(abandon_after.as_secs() as i64)
     .fetch_all(pool)
     .await
     .map_err(|err| database("expiring abandoned uploads", err))
@@ -103,11 +102,10 @@ pub(super) async fn delete_abandoned(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::db;
+    use sqlx::PgPool;
 
-    #[tokio::test]
-    async fn claim_is_once_per_owner_and_can_be_restored() {
-        let pool = db::test_db().await;
+    #[sqlx::test(migrations = "./migrations")]
+    async fn claim_is_once_per_owner_and_can_be_restored(pool: PgPool) {
         insert(&pool, "mock-user", "uploads/a.jpg").await.unwrap();
 
         assert!(matches!(
@@ -132,9 +130,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn release_processing_clears_in_flight_tickets() {
-        let pool = db::test_db().await;
+    #[sqlx::test(migrations = "./migrations")]
+    async fn release_processing_clears_in_flight_tickets(pool: PgPool) {
         insert(&pool, "mock-user", "uploads/a.jpg").await.unwrap();
         claim(&pool, "mock-user", "uploads/a.jpg").await.unwrap();
 
@@ -149,19 +146,20 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn delete_abandoned_keeps_live_and_referenced_tickets() {
-        let pool = db::test_db().await;
+    #[sqlx::test(migrations = "./migrations")]
+    async fn delete_abandoned_keeps_live_and_referenced_tickets(pool: PgPool) {
         insert(&pool, "mock-user", "old").await.unwrap();
         insert(&pool, "mock-user", "processing").await.unwrap();
         insert(&pool, "mock-user", "fresh").await.unwrap();
         insert(&pool, "mock-user", "referenced").await.unwrap();
 
-        sqlx::query("UPDATE uploads SET created_at = '2000-01-01 00:00:00' WHERE key != 'fresh'")
-            .execute(&pool)
-            .await
-            .unwrap();
-        sqlx::query("UPDATE uploads SET in_processing = 1 WHERE key = 'processing'")
+        sqlx::query(
+            "UPDATE uploads SET created_at = '2000-01-01 00:00:00+00' WHERE key != 'fresh'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("UPDATE uploads SET in_processing = true WHERE key = 'processing'")
             .execute(&pool)
             .await
             .unwrap();

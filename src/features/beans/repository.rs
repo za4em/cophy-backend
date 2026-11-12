@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use super::model::{BeanDraft, encode_notes};
 use crate::core::errors::{AppError, database};
@@ -16,7 +16,7 @@ pub(super) struct BeanRow {
 }
 
 pub(super) async fn list(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     before: Option<i64>,
     limit: i64,
@@ -25,14 +25,13 @@ pub(super) async fn list(
         r#"
         SELECT id, name, origin, roaster, process, elevation, tasting_notes, image_key
         FROM beans
-        WHERE user_id = ?
-          AND (? IS NULL OR id < ?)
+        WHERE user_id = $1
+          AND ($2::bigint IS NULL OR id < $2)
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT $3
         "#,
     )
     .bind(user_id)
-    .bind(before)
     .bind(before)
     .bind(limit)
     .fetch_all(pool)
@@ -40,12 +39,12 @@ pub(super) async fn list(
     .map_err(|err| database("listing coffees", err))
 }
 
-pub(super) async fn fetch(pool: &SqlitePool, user_id: &str, id: i64) -> Result<BeanRow, AppError> {
+pub(super) async fn fetch(pool: &PgPool, user_id: &str, id: i64) -> Result<BeanRow, AppError> {
     sqlx::query_as(
         r#"
         SELECT id, name, origin, roaster, process, elevation, tasting_notes, image_key
         FROM beans
-        WHERE id = ? AND user_id = ?
+        WHERE id = $1 AND user_id = $2
         "#,
     )
     .bind(id)
@@ -57,7 +56,7 @@ pub(super) async fn fetch(pool: &SqlitePool, user_id: &str, id: i64) -> Result<B
 }
 
 pub(super) async fn find_by_image_key(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     image_key: &str,
 ) -> Result<Option<BeanRow>, AppError> {
@@ -65,7 +64,7 @@ pub(super) async fn find_by_image_key(
         r#"
         SELECT id, name, origin, roaster, process, elevation, tasting_notes, image_key
         FROM beans
-        WHERE user_id = ? AND image_key = ?
+        WHERE user_id = $1 AND image_key = $2
         ORDER BY id DESC
         LIMIT 1
         "#,
@@ -78,7 +77,7 @@ pub(super) async fn find_by_image_key(
 }
 
 pub(super) async fn insert(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     draft: &BeanDraft,
     image_key: Option<&str>,
@@ -88,7 +87,7 @@ pub(super) async fn insert(
         INSERT INTO beans (
             user_id, name, origin, roaster, process, elevation, tasting_notes, image_key
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
         "#,
     )
@@ -108,7 +107,7 @@ pub(super) async fn insert(
 }
 
 pub(super) async fn update(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     id: i64,
     draft: &BeanDraft,
@@ -116,14 +115,14 @@ pub(super) async fn update(
     let result = sqlx::query(
         r#"
         UPDATE beans
-        SET name = ?,
-            origin = ?,
-            roaster = ?,
-            process = ?,
-            elevation = ?,
-            tasting_notes = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND user_id = ?
+        SET name = $1,
+            origin = $2,
+            roaster = $3,
+            process = $4,
+            elevation = $5,
+            tasting_notes = $6,
+            updated_at = now()
+        WHERE id = $7 AND user_id = $8
         "#,
     )
     .bind(&draft.name)
@@ -146,12 +145,12 @@ pub(super) async fn update(
 }
 
 pub(super) async fn delete(
-    pool: &SqlitePool,
+    pool: &PgPool,
     user_id: &str,
     id: i64,
 ) -> Result<Option<String>, AppError> {
     let row = fetch(pool, user_id, id).await?;
-    sqlx::query("DELETE FROM beans WHERE id = ? AND user_id = ?")
+    sqlx::query("DELETE FROM beans WHERE id = $1 AND user_id = $2")
         .bind(id)
         .bind(user_id)
         .execute(pool)
@@ -163,7 +162,7 @@ pub(super) async fn delete(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::db;
+    use sqlx::PgPool;
 
     fn sample() -> BeanDraft {
         BeanDraft {
@@ -180,9 +179,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn creates_lists_updates_and_deletes_for_the_owner() {
-        let pool = db::test_db().await;
+    #[sqlx::test(migrations = "./migrations")]
+    async fn creates_lists_updates_and_deletes_for_the_owner(pool: PgPool) {
         let created = insert(&pool, "mock-user", &sample(), Some("uploads/a.jpg"))
             .await
             .unwrap();
@@ -231,9 +229,8 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn list_returns_a_page() {
-        let pool = db::test_db().await;
+    #[sqlx::test(migrations = "./migrations")]
+    async fn list_returns_a_page(pool: PgPool) {
         let older = insert(&pool, "mock-user", &sample(), None).await.unwrap();
         let mut second = sample();
         second.name = "Second".to_owned();
